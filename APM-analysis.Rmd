@@ -1,0 +1,119 @@
+---
+title: "APM Analysis"
+output: html_notebook
+---
+
+```{r echo=FALSE}
+library(dplyr)
+library(ggplot2)
+library(caret)
+```
+
+```{r}
+master_data <- read.csv('data/HDdata.csv')
+```
+
+### Model Type
+For this model we'll be using a logistic regression model since this problem is a binary classification problem.
+
+### Initial Analysis
+In your data are there:
+NA values
+There are 10 NAs in the age column. All other columns do not have any NA values. Since the missing values are such a small percentage of the overall data we will simply remove those observations for this analysis.
+	
+Categorical values
+Tthere are no categorical values/variables. Some columns could have been categorical, but they have already been encoded numerically.
+	
+Binary values
+Yes, the `sex`, `fbs`, and `exang` variables contain binary values.
+	
+Numeric (real number) values
+All columns contain numberic values. Furthermore, all columns are type integer       except for the oldpeak variable which is type double. 
+
+
+### Preprocess Data
+```{r}
+# Remove missing values
+master_data <- master_data %>%
+  filter(!is.na(age))
+
+# Split out the dependent variable
+heart_data <- master_data[, 1:10]
+y <- master_data[,11]
+
+# Split out training and test data
+set.seed(12)
+training_indexes <- createDataPartition(y, p=.70, list = F)
+X_train <- heart_data[training_indexes, 1:10]
+y_train <- y[training_indexes]
+X_test <- heart_data[-training_indexes, 1:10]
+y_test <- y[-training_indexes]
+
+# Preprocessing
+# Scale data
+X_train <- scale(X_train, center = F)
+X_test <- scale(X_test, center= F, scale=attr(X_train, "scaled:scale"))
+X_train <- as.data.frame(X_train)
+X_test <- as.data.frame(X_test)
+```
+
+### Fit a logistic regression model
+```{r}
+fit <- glm(y_train~age+sex+cp+trestbps+chol+fbs+restecg+thalach+exang+oldpeak,data=X_train,family=binomial())
+```
+
+### Get predictions on the training data
+```{r}
+# Set a threshold for predictions
+threshold <- 0.5
+
+# Train Predictions
+train_predictions <- predict(fit, X_train, type = 'response')
+train_predictions <- as.numeric(train_predictions > threshold)
+train_cm <- confusionMatrix(as.factor(train_predictions), as.factor(y_train))
+```
+
+### Training Results
+```{r}
+train_accuracy <- train_cm$overall['Accuracy']
+train_sensitivity <- train_cm$byClass['Sensitivity']
+train_specificity <- train_cm$byClass['Specificity']
+train_ppv <- train_cm$byClass['Pos Pred Value']
+train_npv <- train_cm$byClass['Neg Pred Value']
+```
+__Accuracy__: `r train_accuracy`
+
+__Sensitivity__: `r train_sensitivity`
+
+__Specificity__: `r train_specificity` 
+
+__PPV__: `r train_ppv`
+
+__NPV__: `r train_npv`
+
+
+### Get predictions on the test data
+```{r}
+# Test Predictions
+predictions <- predict(fit, X_test, type = 'response')
+predictions <- as.numeric(predictions > threshold)
+cm <- confusionMatrix(as.factor(predictions), as.factor(y_test))
+```
+
+### Test data results
+```{r}
+accuracy <- cm$overall['Accuracy']
+sensitivity <- cm$byClass['Sensitivity']
+specificity <- cm$byClass['Specificity']
+ppv <- cm$byClass['Pos Pred Value']
+npv <- cm$byClass['Neg Pred Value']
+```
+__Accuracy__: `r accuracy`
+
+__Sensitivity__: `r sensitivity`
+
+__Specificity__: `r specificity` 
+
+__PPV__: `r ppv`
+
+__NPV__: `r npv`
